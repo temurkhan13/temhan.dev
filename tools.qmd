@@ -10,7 +10,7 @@ Eight production-AI ops tools shipped between April-May 2026. All MIT-licensed. 
 
 The 7 MCP servers cover the highest-frequency production failure patterns. **Aufgaard** is the umbrella plugin that bundles all 7 + skills + hooks for one-shot install in Claude Code or Cursor.
 
-The 7-pack + bundled deliverables are also available as the [Production-AI MCP Suite on Gumroad](https://temurah.gumroad.com/l/production-ai-mcp-suite) — a $99 buyer-only field reference.
+The 7-pack + bundled deliverables are also available as the [Production-AI MCP Suite on Gumroad](https://temurah.gumroad.com/l/production-ai-mcp-suite) — a $29 buyer-only field reference.
 
 ---
 
@@ -132,7 +132,7 @@ Submitted to:
 
 ---
 
-## Bundle: Production-AI MCP Suite ($99)
+## Bundle: Production-AI MCP Suite ($29)
 
 [temurah.gumroad.com/l/production-ai-mcp-suite](https://temurah.gumroad.com/l/production-ai-mcp-suite)
 
@@ -144,5 +144,5 @@ Use the bundle if you want the Field Reference + organized install scripts + Wel
 
 ## Companion products
 
-- [AI Production Discipline Framework](https://temurah.gumroad.com/l/ai-production-discipline-framework) — Notion template, $29 — the methodology these MCP tools implement (74 pages, 14-pattern catalog, audit ritual, 5 Cs post-mortem format)
+- [AI Production Discipline Framework](https://temurah.gumroad.com/l/ai-production-discipline-framework) — Notion template, $19 — the methodology these MCP tools implement (74 pages, 14-pattern catalog, audit ritual, 5 Cs post-mortem format)
 - [AI Production Auditor (Custom GPT)](https://chatgpt.com/g/g-69f224f4c4c88191bb81e97051dab692-ai-production-auditor) — free, ChatGPT-only, paste your config and get a 5 Cs report against the same framework

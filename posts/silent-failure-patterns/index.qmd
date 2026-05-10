@@ -210,8 +210,8 @@ But you don't need to hire me OR use the GPT to act on this article. The pattern
 If you want the operational layer rather than just the patterns:
 
 - **[silentwatch-mcp](https://github.com/temurkhan13/silentwatch-mcp)** — open-source MCP server that surfaces patterns 1, 3, and 5 (silent failures, action-budget leaks, retry anomalies) for any cron or scheduled-job source. `pip install silentwatch-mcp`.
-- **[Production-AI MCP Suite](https://temurah.gumroad.com/l/production-ai-mcp-suite)** — bundled 7-pack of MCPs + 35-pattern Field Reference PDF, $99.
-- **[AI Production Discipline Framework](https://temurah.gumroad.com/l/ai-production-discipline-framework)** — Notion template with the full 14-pattern catalog plus the audit ritual, $29.
+- **[Production-AI MCP Suite](https://temurah.gumroad.com/l/production-ai-mcp-suite)** — bundled 7-pack of MCPs + 35-pattern Field Reference PDF, $29.
+- **[AI Production Discipline Framework](https://temurah.gumroad.com/l/ai-production-discipline-framework)** — Notion template with the full 14-pattern catalog plus the audit ritual, $19.
 - **[AI Production Auditor (GPT Store)](https://chatgpt.com/g/g-69f224f4c4c88191bb81e97051dab692-ai-production-auditor)** — free ChatGPT GPT, paste your config and get a 5 Cs audit report.
 
 Plus 6 more MCP servers in the bundle covering destructive shell commands, hallucinated agent claims, supply-chain risk, cost spikes, deployment health, and upgrade safety. [See all tools →](../../tools.qmd)

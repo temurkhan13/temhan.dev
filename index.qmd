@@ -14,7 +14,7 @@ Outside building tools, I also:
 - **Build** custom MCP servers for B2B SaaS APIs and ops platforms. [Hire me →](hire.qmd)
 - **Available** for advisory + short-form consulting via email below.
 
-The 7 MCP servers + Aufgaard plugin are bundled together as the [Production-AI MCP Suite](https://temurah.gumroad.com/l/production-ai-mcp-suite) — a $99 buyer-only field reference for operators who own the system.
+The 7 MCP servers + Aufgaard plugin are bundled together as the [Production-AI MCP Suite](https://temurah.gumroad.com/l/production-ai-mcp-suite) — a $29 buyer-only field reference for operators who own the system.
 
 ---
 

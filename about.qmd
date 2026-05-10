@@ -11,8 +11,8 @@ The shipped artifacts:
 
 - 7 MCP servers — silentwatch, bash-vet, output-vetter, skill-vetter, cost-tracker, health, upgrade-orchestrator. All MIT, all on PyPI.
 - 1 plugin — [Aufgaard](https://github.com/temurkhan13/aufgaard) — bundles all 7 + skills + hooks for Claude Code and Cursor. Submitted to Anthropic and Cursor marketplaces.
-- 1 bundle — [Production-AI MCP Suite](https://temurah.gumroad.com/l/production-ai-mcp-suite) — buyer-only field reference, $99.
-- 1 Notion template — [AI Production Discipline Framework](https://temurah.gumroad.com/l/ai-production-discipline-framework) — the 14-pattern catalog these MCPs implement, $29.
+- 1 bundle — [Production-AI MCP Suite](https://temurah.gumroad.com/l/production-ai-mcp-suite) — buyer-only field reference, $29.
+- 1 Notion template — [AI Production Discipline Framework](https://temurah.gumroad.com/l/ai-production-discipline-framework) — the 14-pattern catalog these MCPs implement, $19.
 - 1 free Custom GPT — [AI Production Auditor](https://chatgpt.com/g/g-69f224f4c4c88191bb81e97051dab692-ai-production-auditor) — paste your config, get a 5 Cs audit report.
 - Long-form writing — [Writing →](posts.qmd)
 
