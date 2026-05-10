@@ -65,7 +65,7 @@ fetch('posts.xml')
 
 ## Contact
 
-Audit / Custom MCP Build inquiries: **[temur@pixelette.tech](mailto:temur@pixelette.tech)**
+Audit / Custom MCP Build inquiries: **[hello@temhan.dev](mailto:hello@temhan.dev)**
 
 Use one of these subject lines for fastest routing:
 

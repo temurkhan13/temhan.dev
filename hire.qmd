@@ -23,7 +23,7 @@ A focused review of your production AI deployment against the 35-pattern failure
 - Specific corrective actions (not "implement monitoring" — *exact* code changes, hooks, checks)
 - 90-day follow-up call (Standard + Workshop tiers)
 
-**Email:** [temur@pixelette.tech](mailto:temur@pixelette.tech?subject=AI%20audit%20inquiry) with subject `AI audit inquiry`. Include 1 paragraph on your stack + which tier you want.
+**Email:** [hello@temhan.dev](mailto:hello@temhan.dev?subject=AI%20audit%20inquiry) with subject `AI audit inquiry`. Include 1 paragraph on your stack + which tier you want.
 
 ---
 
@@ -44,7 +44,7 @@ Adapt the 7 MCP servers I've shipped — or build a new server entirely — for 
 - Documentation + setup walkthrough + 30-day post-ship support
 - Optional: open-source the generic version, keep the domain-specific layer private
 
-**Email:** [temur@pixelette.tech](mailto:temur@pixelette.tech?subject=Custom%20MCP%20Build%20inquiry) with subject `Custom MCP Build inquiry`. Include 1 paragraph on your stack + which tier.
+**Email:** [hello@temhan.dev](mailto:hello@temhan.dev?subject=Custom%20MCP%20Build%20inquiry) with subject `Custom MCP Build inquiry`. Include 1 paragraph on your stack + which tier.
 
 ---
 
@@ -52,7 +52,7 @@ Adapt the 7 MCP servers I've shipped — or build a new server entirely — for 
 
 For one-off questions, ad-hoc reviews, or pre-engagement scoping — happy to do a 60-min advisory call. Hourly rate, prorated.
 
-**Email:** [temur@pixelette.tech](mailto:temur@pixelette.tech?subject=Advisory) with subject `Advisory`.
+**Email:** [hello@temhan.dev](mailto:hello@temhan.dev?subject=Advisory) with subject `Advisory`.
 
 ---
 
