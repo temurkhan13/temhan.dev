@@ -3,15 +3,20 @@ project:
   output-dir: _site
   resources:
     - CNAME
+    - favicon.svg
 
 website:
   title: "Temur Khan"
   description: "Production AI engineer. Shipping MCPs + Aufgaard plugin for production AI ops."
   site-url: https://temhan.dev
+  favicon: favicon.svg
   open-graph: true
   twitter-card:
     creator: "@temurkhan138"
     card-style: summary_large_image
+  search:
+    location: navbar
+    type: overlay
 
   navbar:
     background: light
