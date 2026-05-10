@@ -197,7 +197,7 @@ If you want a starting point in your own production AI system:
 3. **Write the corrective action.** Not "we'll fix this someday" — a specific code change, a specific hook, a specific check. With an owner and a date.
 4. **Schedule a recurring audit.** Monthly is cheap (90 min if your data is wired up). Quarterly is the absolute floor. The patterns rot back without an audit cadence.
 
-If you'd rather have someone outside your team do the first audit so you have a baseline to compare against, that's literally the service I run — [Hire me →](../../hire.qmd) for $1.5-7.5k tiered audits.
+If you'd rather have someone outside your team do the first audit so you have a baseline to compare against, that's literally the service I run — [Hire me →](../../hire.qmd) for $2.5-7.5k tiered audits, plus a free 30-min triage call if you're unsure which tier fits.
 
 Or if you want a free first pass on the same methodology without a commitment — paste your config or agent setup into the [AI Production Auditor GPT](https://chatgpt.com/g/g-69f224f4c4c88191bb81e97051dab692-ai-production-auditor) on the GPT Store. Same five-pattern framework, same 5 Cs report format, no signup beyond a ChatGPT account.
 

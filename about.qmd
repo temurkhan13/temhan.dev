@@ -22,8 +22,9 @@ The 7 MCP servers each address one or more patterns from the catalog inline — 
 
 ## What I'm available for
 
-- **Production AI audits** — $1.5–7.5k tiered, 1-3 weeks. Outside-practitioner scoring against the 35-pattern catalog.
-- **Custom MCP server builds** — $8–45k tiered, 1-3 weeks. Adapt the templates to your stack — different harness, custom logging schema, vendor billing API, internal compliance.
+- **Production AI audits** — $2.5–7.5k tiered, 1-4 weeks. Outside-practitioner scoring against the 35-pattern catalog.
+- **Custom MCP server builds** — $2k productized adapter / $10–15k custom server / $30–45k full platform. Adapt the templates to your stack — different harness, custom logging schema, vendor billing API, internal compliance.
+- **Ops Monitor retainer** — $500–1,500/mo. Ongoing trusted-advisor relationship: quarterly audit + monthly check-in + Slack channel.
 - **Advisory** — short-form consulting on production-AI architecture decisions.
 
 [Hire me →](hire.qmd)
