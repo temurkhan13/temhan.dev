@@ -1,0 +1,24 @@
+# Quarto build outputs
+_site/
+.quarto/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Python (in case Quarto pulls in Python deps)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node (if any tooling later)
+node_modules/
+
+# Local env / secrets
+.env
+.env.local

@@ -1,0 +1,225 @@
+---
+title: "5 Silent-Failure Patterns I Keep Finding in Production AI Systems"
+description: "Production AI systems fail in ways traditional monitoring can't catch. Here's the catalog of 5 patterns that keep appearing across every stack — and what to check for."
+date: 2026-05-07
+date-modified: 2026-05-10
+categories: [production-ai, monitoring, agents, mcp]
+author: "Temur Khan"
+toc: true
+toc-depth: 2
+reading-time: true
+---
+
+Over the past year I've been cataloging public reports of production AI failures — HackerNews threads, r/ClaudeAI / r/AI_Agents / r/SaaS posts, X threads, postmortems on engineering blogs. 200+ threads, across every stack: LangChain, LlamaIndex, vanilla SDK calls, custom agent harnesses. Different audiences (B2B SaaS, internal tools, consumer features), different scales. The failure modes are remarkably consistent.
+
+Here's what's surprised me: the failures that hurt the most aren't the obvious ones. Models hallucinate, sure — but most teams have at least *some* defense against that. APIs go down — that's an exit code, that's a metric, that's an alert. Those failures get caught.
+
+The ones that hurt are the **silent failures**. The job that ran successfully but produced nothing useful. The agent that returned an "ok" status while having done literally nothing. The cost line that slowly drifted up because one feature was hitting the LLM 4× per request instead of once. These don't trigger any alarms. They don't show up in error logs. They make it to production and stay there for weeks because the monitoring all says "healthy."
+
+This is a catalog of the five I see most often, with the failure mode, how it actually surfaces, and what I now check for.
+
+---
+
+## 1. Exit-code-zero, output-empty
+
+The classic. A scheduled job — could be a daily summary, could be a web-search refresh, could be an audit snapshot — runs, returns exit code 0, finishes in normal time. The cron monitor turns green. Everyone's happy.
+
+Except the output was empty. Or it was the literal string `<no rows>`. Or it was a 0-byte file. Or it was a 200 response with `{"results": []}` while the query was supposed to return ~thousand rows.
+
+Why this happens: the script's "success" check is too lenient. Something like:
+
+```python
+def run_summary():
+    rows = fetch_data()
+    if rows is None:
+        sys.exit(1)  # explicit failure
+    summary = summarize(rows)  # returns "" if rows == []
+    send_email(summary)
+    sys.exit(0)  # everything's fine?
+```
+
+The `if rows is None` check is the only failure path. But `rows = []` (empty list) flows through as if it were a normal day. The LLM dutifully summarizes nothing into nothing. The email goes out with an empty body. Exit code 0.
+
+Patterns observed in the wild:
+
+- Daily-summary emails that gradually started arriving empty because an upstream API key expired silently
+- Web-search-backed agents that started returning empty results because of a query template change
+- Backup scripts that uploaded 0-byte files for weeks because the source path was wrong
+- Audit-snapshot crons that returned exit 0 without writing the snapshot file because the disk was full and the write silently failed
+
+**What to check for:**
+
+- Output length anomaly vs historical median (if today's output is <30% of typical size, flag it)
+- Output presence — empty stdout from a job that's supposed to produce output is itself a failure
+- Expected-pattern matching — if the job's manifest says it should produce a summary line, verify that line exists
+
+The mental model shift: **exit code is one signal. Output content is a second signal. Both must be checked independently.** A job that exits 0 with empty output is a *silent failure*, not a success.
+
+This is exactly what [silentwatch-mcp](https://github.com/temurkhan13/silentwatch-mcp) catches — drop it in over your existing cron / systemd / JSONL run logs. Sub-second, local, free.
+
+---
+
+## 2. The "just this once" hook bypass that becomes permanent
+
+Engineering needs to ship a hotfix. There's a validation hook in the way. Someone disables the hook for "just this deployment, we'll re-enable next sprint." The hotfix ships. The hook stays disabled.
+
+Six months later, an audit catches that the validation has been off for the entire window — every release in the meantime has shipped without the check.
+
+Patterns observed:
+
+- LLM output validators disabled "temporarily" for a launch
+- PII redaction guards turned off because a customer support workflow needed raw logs
+- Cost-cap circuit breakers raised "just for the holiday season" and never lowered
+- Tool-argument schema validators bypassed because a model started passing nonsensical arguments and "we'll fix it later"
+
+The pattern is universal: **constraint X feels like it's blocking shipping, X gets disabled, the underlying reason X existed gets forgotten, X never comes back.**
+
+**What to check for:**
+
+- Hygiene-exception registry: every hook bypass is logged with reason + owner + explicit expiry date + renewal review
+- Monthly audit ritual that walks the registry and asks "is this exception still needed?"
+- Hooks themselves emit a metric when bypassed — so even if the registry is forgotten, the production telemetry surfaces the bypass
+
+The mental model shift: **disabling a guard is a temporary action that needs an expiration date.** Not "we'll re-enable it eventually" but "this exception expires on $DATE and the owner is $NAME." If the date arrives and the exception is still needed, it's a real product decision, not background drift.
+
+---
+
+## 3. Action-budget leak through agent loops
+
+You build an agent. You give it a budget — say, "20 tool calls per run, max." You ship it. Three weeks later, you're looking at your LLM bill and one specific feature's cost has 5×'d.
+
+The bug: the budget was checked at the start of the run, not per-action. The agent runs, makes 20 calls, the loop's recursion logic doesn't notice the budget is exhausted, makes a 21st call, then a 22nd, then a 23rd... by call 80 the agent has solved the problem (or given up) but has burned through 4× the intended cost.
+
+Worse: most agent frameworks don't expose per-action budgets natively. The pattern is something like:
+
+```python
+class Agent:
+    def __init__(self, max_actions=20):
+        self.max_actions = max_actions
+        self.action_count = 0
+
+    def run(self, task):
+        while not done:
+            if self.action_count >= self.max_actions:
+                return  # this check is correct here, but...
+            result = self.tool_call(...)  # ...this might recurse internally
+            self.action_count += 1
+```
+
+If `tool_call` internally invokes another agent, or has its own retry loop, the parent's `action_count` doesn't track those nested calls. The "20 max" is really "20 top-level, unbounded total."
+
+Patterns observed:
+
+- A summarization agent that recursed when input was too long, with no recursion depth check
+- A search-and-rewrite loop that "kept trying" when results were empty (see also pattern #1 — empty output triggering a retry cascade)
+- Tool calls that internally made multiple LLM calls each, while the budget was tracking tool calls, not LLM calls
+- Multi-agent harnesses where each sub-agent had its own budget but the parent had no global budget
+
+**What to check for:**
+
+- Budget should be decremented per-action at the *innermost* call site, not per-task at the outermost
+- Hard-stop: budget at zero → return early, do not pass go, dead-letter the run for review
+- Per-call cost tracking + alerting on outliers (not just totals; an outlier run that 5×s normal cost should fire an alert before the day-end summary catches it)
+- For multi-agent: shared budget pool that all sub-agents decrement, not per-agent budgets
+
+The mental model shift: **a budget enforced once at the start is not a budget; it's a suggestion.** Real budgets are decremented per action, hard-stop on zero, with an alert path so you find out about the depletion before the bill arrives.
+
+[openclaw-cost-tracker-mcp](https://github.com/temurkhan13/openclaw-cost-tracker-mcp) covers the spend-spike detection + 429 prediction side; the budget-enforcement side has to live in your agent harness.
+
+---
+
+## 4. Tool-arg semantic validation gap
+
+Your agent calls a tool: `escalate_to_human(user_id, reason)`. Your tool has a JSON schema validator on the input. The schema says `user_id: string`. The LLM passes `user_id="the user mentioned in the conversation"`. The schema is happy. Your tool dispatcher is happy. The escalation goes through.
+
+You now have a support ticket against a literal user named "the user mentioned in the conversation."
+
+Patterns observed:
+
+- Tools that accepted user identifiers as strings but actually needed UUIDs / database IDs
+- Tools that took `email` arguments and got passed strings like "his email" or "the email from earlier"
+- Tools that took `amount` arguments and accepted strings like "the same amount as last time" (which the LLM thought was specific but the tool received as raw text)
+- Multi-tool chains where output of tool A was supposed to become input of tool B, but the LLM paraphrased rather than passing through verbatim
+
+JSON schema validation is *necessary but not sufficient*. It catches type mismatches but not semantic mismatches.
+
+**What to check for:**
+
+- Semantic post-validation after JSON parse, before tool dispatch:
+  - `user_id` resolves to a real user record? Reject if not.
+  - `email` matches email regex? Reject if not.
+  - `amount` parses as a number? Reject if not.
+  - `date` parses as a real date in plausible range? Reject if not.
+- For tool chains: explicit pass-through tokens (the LLM is told "use the literal value from tool A's output, do not paraphrase")
+- Semantic validators *return errors back to the LLM* so it can self-correct, not just hard-fail
+
+The mental model shift: **type validation is for the parser; semantic validation is for the agent.** A string that's correctly typed but semantically nonsense is a silent failure waiting to happen.
+
+---
+
+## 5. The "successful retry" that hides repeated failure
+
+Your agent retries on failure. That's good. Your retry policy is exponential backoff with 3 attempts. That's also good. After the 3 attempts, the agent might succeed. Reported status: success.
+
+But the actual user-visible behavior was: 3-second delay, then 6-second delay, then 12-second delay, then succeed. Total: 21 seconds. The user has long since given up.
+
+Or: the retries themselves are succeeding because the retry condition is too lenient. The first call returns a 200 with garbage content (silent failure pattern #1). The retry logic says "didn't see exit code != 0, no retry." So the system "succeeded" on the first try, with garbage.
+
+Or: the retries are masking a real upstream issue. The downstream service has a 50% error rate. Your retry-3-times logic gives you a 87.5% success rate at the cost of 1.875× the average call count. From the outside, "things look okay." From the inside, your costs are inflated 87% and you don't know why.
+
+Patterns observed:
+
+- Latency p99 spikes that nobody noticed because the success-rate metric was unaffected
+- Cost overruns where the retry count was 3× normal but never alerted because no individual call failed visibly
+- "The product works fine" reports from QA followed by "the product is unusably slow" reports from real users — because QA's environment had ideal conditions and triggered no retries
+- Cascading retry storms where one upstream blip caused 3× downstream load, which caused other timeouts, which caused more retries
+
+**What to check for:**
+
+- Retry count as a first-class metric, alert on outliers (not just averages)
+- Latency p99 measured *after* retries, not just per-attempt latency
+- Retry rate per route — if a specific endpoint has retry rate >10%, that's a bug, not a normal mode
+- Per-attempt logging so you can see the chain of attempts, not just the final outcome
+- Retry-on-content-anomaly, not just retry-on-exception (if pattern #1 fires, that's a retry trigger)
+
+The mental model shift: **retries are not a fix; they're a defer.** They turn one immediately-visible problem into many slower-visible problems. Every retry is a signal that something is wrong upstream — and if you're not measuring the retry rate per route, you're letting the upstream issue persist invisibly.
+
+---
+
+## What to do with this catalog
+
+These five aren't exhaustive. There are nine more in the [longer 35-pattern catalog](https://temurah.gumroad.com/l/production-ai-mcp-suite) — error-keyword-in-stdout-despite-exit-zero, audit-trail completeness drift, action-budget per-tick vs per-task, expected-pattern-missing detection, duration-anomaly variants. But these five are the highest-frequency ones.
+
+If you want a starting point in your own production AI system:
+
+1. **Pick one pattern from this list that you suspect is happening in your own stack.** Don't pick the least-likely one for variety; pick the one your gut says you've already hit.
+2. **Spend 30 minutes looking for evidence.** Grep your retry counts, look at p99 latencies after retries, sample 10 recent agent runs and check their output content (not just exit codes), inspect any "temporarily disabled" hooks. You'll find the pattern.
+3. **Write the corrective action.** Not "we'll fix this someday" — a specific code change, a specific hook, a specific check. With an owner and a date.
+4. **Schedule a recurring audit.** Monthly is cheap (90 min if your data is wired up). Quarterly is the absolute floor. The patterns rot back without an audit cadence.
+
+If you'd rather have someone outside your team do the first audit so you have a baseline to compare against, that's literally the service I run — [Hire me →](../../hire.qmd) for $1.5-7.5k tiered audits.
+
+Or if you want a free first pass on the same methodology without a commitment — paste your config or agent setup into the [AI Production Auditor GPT](https://chatgpt.com/g/g-69f224f4c4c88191bb81e97051dab692-ai-production-auditor) on the GPT Store. Same five-pattern framework, same 5 Cs report format, no signup beyond a ChatGPT account.
+
+But you don't need to hire me OR use the GPT to act on this article. The patterns above are public; the catalog they come from is openly available; the framework that implements them is documented.
+
+---
+
+## Tools I built around this
+
+If you want the operational layer rather than just the patterns:
+
+- **[silentwatch-mcp](https://github.com/temurkhan13/silentwatch-mcp)** — open-source MCP server that surfaces patterns 1, 3, and 5 (silent failures, action-budget leaks, retry anomalies) for any cron or scheduled-job source. `pip install silentwatch-mcp`.
+- **[Production-AI MCP Suite](https://temurah.gumroad.com/l/production-ai-mcp-suite)** — bundled 7-pack of MCPs + 35-pattern Field Reference PDF, $99.
+- **[AI Production Discipline Framework](https://temurah.gumroad.com/l/ai-production-discipline-framework)** — Notion template with the full 14-pattern catalog plus the audit ritual, $29.
+- **[AI Production Auditor (GPT Store)](https://chatgpt.com/g/g-69f224f4c4c88191bb81e97051dab692-ai-production-auditor)** — free ChatGPT GPT, paste your config and get a 5 Cs audit report.
+
+Plus 6 more MCP servers in the bundle covering destructive shell commands, hallucinated agent claims, supply-chain risk, cost spikes, deployment health, and upgrade safety. [See all tools →](../../tools.qmd)
+
+---
+
+## Ending thought
+
+Naming the patterns is half the work; once you have a name for a pattern, you start spotting it everywhere, and you stop accepting "it just happens sometimes" as an explanation.
+
+If you found this useful, the longer catalog is bundled with the [Production-AI MCP Suite](https://temurah.gumroad.com/l/production-ai-mcp-suite). For audit consulting: [Hire me →](../../hire.qmd).

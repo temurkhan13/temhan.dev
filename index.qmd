@@ -1,0 +1,76 @@
+---
+title: "Hi, I'm Temur Khan."
+description: "Production AI engineer. Shipping MCPs + Aufgaard plugin for production AI ops."
+pagetitle: "Temur Khan — production AI engineer"
+toc: false
+---
+
+I ship production-AI ops tools. Currently building **[Aufgaard](https://github.com/temurkhan13/aufgaard)** — an open-source plugin that bundles 7 MCP servers + skills + hooks for Claude Code and Cursor.
+
+Outside building tools, I also:
+
+- **Write** about production AI failure patterns — silent failures, hallucinated success, agent supply-chain attacks, cost spikes. [See the catalog →](posts.qmd)
+- **Audit** production AI deployments — 1-3 weeks, written report against a 35-pattern catalog with 90-day follow-up. [Hire me →](hire.qmd)
+- **Build** custom MCP servers for B2B SaaS APIs and ops platforms. [Hire me →](hire.qmd)
+- **Available** for advisory + short-form consulting via email below.
+
+The 7 MCP servers + Aufgaard plugin are bundled together as the [Production-AI MCP Suite](https://temurah.gumroad.com/l/production-ai-mcp-suite) — a $99 buyer-only field reference for operators who own the system.
+
+---
+
+## Tools I've shipped
+
+| Tool | What it catches | Install |
+|------|-----------------|---------|
+| [silentwatch-mcp](https://github.com/temurkhan13/silentwatch-mcp) | Cron silent failures (exit 0, empty stdout) | `pip install silentwatch-mcp` |
+| [bash-vet-mcp](https://github.com/temurkhan13/bash-vet-mcp) | Destructive shell commands LLMs propose | `pip install bash-vet-mcp` |
+| [openclaw-output-vetter-mcp](https://github.com/temurkhan13/openclaw-output-vetter-mcp) | Hallucinated agent claims vs reality | `pip install openclaw-output-vetter-mcp` |
+| [openclaw-skill-vetter-mcp](https://github.com/temurkhan13/openclaw-skill-vetter-mcp) | Third-party skill prompt-injection / exfil | `pip install openclaw-skill-vetter-mcp` |
+| [openclaw-cost-tracker-mcp](https://github.com/temurkhan13/openclaw-cost-tracker-mcp) | Per-agent cost + 429 prediction | `pip install openclaw-cost-tracker-mcp` |
+| [openclaw-health-mcp](https://github.com/temurkhan13/openclaw-health-mcp) | Single-pane deployment health | `pip install openclaw-health-mcp` |
+| [openclaw-upgrade-orchestrator-mcp](https://github.com/temurkhan13/openclaw-upgrade-orchestrator-mcp) | Upgrade safety + provider-side regression catalog | `pip install openclaw-upgrade-orchestrator-mcp` |
+| [aufgaard](https://github.com/temurkhan13/aufgaard) | All 7 above + skills + hooks bundled | Claude Code / Cursor plugin |
+
+[All tools →](tools.qmd)
+
+---
+
+## Recent writing
+
+Latest essays on production-AI failure patterns. [See all →](posts.qmd)
+
+::: {#recent-posts}
+:::
+
+```{=html}
+<script>
+fetch('posts.xml')
+  .then(r => r.text())
+  .then(t => {
+    const xml = new DOMParser().parseFromString(t, 'text/xml');
+    const items = [...xml.querySelectorAll('item')].slice(0, 5);
+    const html = items.map(i => {
+      const title = i.querySelector('title')?.textContent;
+      const link = i.querySelector('link')?.textContent;
+      const date = new Date(i.querySelector('pubDate')?.textContent).toISOString().slice(0,10);
+      return `<div style="margin: 0.6em 0;"><span style="color: #888; font-family: ui-monospace, monospace; font-size: 0.9em;">${date}</span> · <a href="${link}">${title}</a></div>`;
+    }).join('');
+    document.getElementById('recent-posts').innerHTML = html;
+  })
+  .catch(() => {});
+</script>
+```
+
+---
+
+## Contact
+
+Audit / Custom MCP Build inquiries: **[temur@pixelette.tech](mailto:temur@pixelette.tech)**
+
+Use one of these subject lines for fastest routing:
+
+- `AI audit inquiry` — for production AI audit engagements
+- `Custom MCP Build inquiry` — for custom server / plugin work
+- `Advisory` — for short-form consulting / call
+
+I reply within 2 business days.

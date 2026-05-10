@@ -1,0 +1,148 @@
+---
+title: "Tools"
+description: "7 production-AI ops MCP servers + Aufgaard plugin. All MIT, all on PyPI."
+pagetitle: "Tools — production-AI ops MCPs by Temur Khan"
+toc: true
+toc-depth: 2
+---
+
+Eight production-AI ops tools shipped between April-May 2026. All MIT-licensed. All on PyPI. All on [GitHub under temurkhan13](https://github.com/temurkhan13).
+
+The 7 MCP servers cover the highest-frequency production failure patterns. **Aufgaard** is the umbrella plugin that bundles all 7 + skills + hooks for one-shot install in Claude Code or Cursor.
+
+The 7-pack + bundled deliverables are also available as the [Production-AI MCP Suite on Gumroad](https://temurah.gumroad.com/l/production-ai-mcp-suite) — a $99 buyer-only field reference.
+
+---
+
+## silentwatch-mcp
+
+**Catches:** Cron silent failures (exit-0 with empty stdout, length anomalies, retry storms, action-budget leaks).
+
+**Install:** `pip install silentwatch-mcp`
+
+The classic production AI failure: a scheduled job exits 0 every day, monitoring shows green, but the actual output is empty. The cron monitor turns green; downstream consumers say "no new data in days." silentwatch-mcp surfaces this pattern across system cron, systemd timers, and custom JSONL run logs.
+
+**Repo:** [github.com/temurkhan13/silentwatch-mcp](https://github.com/temurkhan13/silentwatch-mcp)
+
+---
+
+## bash-vet-mcp
+
+**Catches:** Destructive shell commands LLMs propose — `rm -rf` chained inside innocent pipelines, `apt remove '*nvidia*'` glob wipeouts, `dd`/`mkfs`/`wipefs` filesystem destruction, `chmod 777 /` privilege blast, `curl | bash` exfil patterns.
+
+**Install:** `pip install bash-vet-mcp`
+
+Defensive complement to MCP shell-execution servers. 30 destructive-pattern rules across 8 families (DESTRUCTIVE / PACKAGE / PRIVILEGED / SHUTDOWN / EXFIL / DATABASE / GIT / SUSPICIOUS). bashlex AST + regex fallback + chain-mode severity escalation.
+
+Built specifically for the [@chiefofautism failure mode](https://x.com/chiefofautism/status/2023151450503753972) — *"claude code can rm -rf your repo, force push to main, drop your database, and it will do it confidently while telling you that he cleaned up the project structure."*
+
+**Repo:** [github.com/temurkhan13/bash-vet-mcp](https://github.com/temurkhan13/bash-vet-mcp)
+
+---
+
+## openclaw-output-vetter-mcp
+
+**Catches:** Hallucinated agent claims vs reality. Three pure-Python checks inline during the conversation — sub-second, no API key.
+
+**Install:** `pip install openclaw-output-vetter-mcp`
+
+- **`verify_response_grounding`** — checks every claim in `answer` is supported by `context`. Returns CLEAN / PARTIALLY_GROUNDED / FABRICATED with stem-Jaccard scores + entity-mismatch detection.
+- **`find_swallowed_exceptions`** — Python AST walk for try/except returning fabricated mock data. The silent-fake-success pattern from the [r/ClaudeAI thread](https://old.reddit.com/r/ClaudeAI/comments/1sdmohb/).
+- **`review_transcript`** — flags unverified completion claims + cross-turn contradictions in multi-turn agent transcripts.
+- **`verify_action_outcome`** *(v1.1+)* — compares an agent's stated outcome against actual before/after state snapshots. Catches the [@chiefofautism case](https://x.com/chiefofautism/status/2023151450503753972) (*"I cleaned up the project structure"* against unchanged disk) AND the Codex sandbox-escalation case (read-only constraint asserted in CoT, then violated).
+
+**Repo:** [github.com/temurkhan13/openclaw-output-vetter-mcp](https://github.com/temurkhan13/openclaw-output-vetter-mcp)
+
+---
+
+## openclaw-skill-vetter-mcp
+
+**Catches:** Adversarial third-party skills before installation. 41 skill-detection rules + 24 agent-config rules across prompt-injection, exfiltration, dynamic execution, and dependency typosquats.
+
+**Install:** `pip install openclaw-skill-vetter-mcp`
+
+Vets ClawHub skills, AGENTS.md / .cursor/rules.md files, and similar agent-extension formats before they enter your trust boundary. Specifically built for the supply-chain attack surface that opened with config-as-instruction (Cursor CVE-2026-26268, Gemini-CLI yolo-mode failure).
+
+**Repo:** [github.com/temurkhan13/openclaw-skill-vetter-mcp](https://github.com/temurkhan13/openclaw-skill-vetter-mcp)
+
+---
+
+## openclaw-cost-tracker-mcp
+
+**Catches:** Per-agent + per-provider cost spikes, 429 surprises, sub-optimal model routing.
+
+**Install:** `pip install openclaw-cost-tracker-mcp`
+
+- Per-agent cost attribution across Anthropic, OpenAI, Gemini, Ollama, AWS Bedrock
+- Spend-spike anomaly detection
+- Cheaper-routing recommendations
+- 30-day forecast
+- *(v1.1+)* **`predict_429_in_window`** — reads `anthropic-ratelimit-*` headers to project rate-limit exhaustion before it hits
+- *(v1.1+)* **`recommend_throttle_target`** — concrete tokens/min target to avoid 429
+
+The HERMES.md / "$6k overnight burn" pattern + Anthropic-April-23 reasoning-effort downgrade pattern.
+
+**Repo:** [github.com/temurkhan13/openclaw-cost-tracker-mcp](https://github.com/temurkhan13/openclaw-cost-tracker-mcp)
+
+---
+
+## openclaw-health-mcp
+
+**Catches:** Deployment health drift across 7 components — gateway, CPU/RAM, skill-registry, errors, upgrade outcome, cron, disk.
+
+**Install:** `pip install openclaw-health-mcp`
+
+Single-pane health overview for AI agent runtimes. Catches the canonical *"gateway has restarted 377 times in 4 weeks but CPU+RAM say everything is fine"* pattern — surface metrics green, deployment in a recovery cycle.
+
+**Repo:** [github.com/temurkhan13/openclaw-health-mcp](https://github.com/temurkhan13/openclaw-health-mcp)
+
+---
+
+## openclaw-upgrade-orchestrator-mcp
+
+**Catches:** Known regressions before upgrade lands. Provider-side capability degradations (silent LLM behavior changes).
+
+**Install:** `pip install openclaw-upgrade-orchestrator-mcp`
+
+Read-only upgrade advisor with an 8-entry regression catalog from real field reports, pre/post snapshot diffing, and rollback guides. Never executes upgrades — surfaces risk + mitigation.
+
+*(v1.2+)* **`record_provider_call` + `detect_provider_regression`** catch hosted-LLM silent behavior changes — the Anthropic-April-23 reasoning-effort downgrade pattern.
+
+**Repo:** [github.com/temurkhan13/openclaw-upgrade-orchestrator-mcp](https://github.com/temurkhan13/openclaw-upgrade-orchestrator-mcp)
+
+---
+
+## aufgaard
+
+**Bundles:** All 7 MCPs above + skills + hooks + monitors + subagents into one installable.
+
+**Install:** Coming via `claude plugin install aufgaard` once Anthropic plugin marketplace approval completes. Direct install meanwhile via [GitHub repo](https://github.com/temurkhan13/aufgaard).
+
+The umbrella plugin for Claude Code and Cursor. 13 skills, 6 hooks, 5 monitors, 5 subagents — all stitched together as a single discovery surface.
+
+Submitted to:
+
+- Anthropic plugin marketplace (under review)
+- Cursor marketplace (under review)
+- ComposioHQ/awesome-claude-skills PR #787
+- Listed at [mcpservers.org](https://mcpservers.org/) and [Glama](https://glama.ai)
+- Auto-indexed at [claudemarketplaces.com](https://claudemarketplaces.com)
+
+**Repo:** [github.com/temurkhan13/aufgaard](https://github.com/temurkhan13/aufgaard)
+
+---
+
+## Bundle: Production-AI MCP Suite ($99)
+
+[temurah.gumroad.com/l/production-ai-mcp-suite](https://temurah.gumroad.com/l/production-ai-mcp-suite)
+
+The 7 MCPs + Aufgaard + a buyer-only **35-pattern Field Reference PDF** mapping every production-AI failure pattern I've cataloged to which MCP catches it.
+
+Use the bundle if you want the Field Reference + organized install scripts + Welcome.md walkthrough. Use the individual `pip install` commands above if you just want the tools.
+
+---
+
+## Companion products
+
+- [AI Production Discipline Framework](https://temurah.gumroad.com/l/ai-production-discipline-framework) — Notion template, $29 — the methodology these MCP tools implement (74 pages, 14-pattern catalog, audit ritual, 5 Cs post-mortem format)
+- [AI Production Auditor (Custom GPT)](https://chatgpt.com/g/g-69f224f4c4c88191bb81e97051dab692-ai-production-auditor) — free, ChatGPT-only, paste your config and get a 5 Cs report against the same framework

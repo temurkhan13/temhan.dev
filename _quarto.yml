@@ -1,0 +1,68 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "Temur Khan"
+  description: "Production AI engineer. Shipping MCPs + Aufgaard plugin for production AI ops."
+  site-url: https://temhan.dev
+  open-graph: true
+  twitter-card:
+    creator: "@temurkhan138"
+    card-style: summary_large_image
+
+  navbar:
+    background: light
+    pinned: true
+    title: "Temur Khan"
+    left:
+      - href: index.qmd
+        text: Home
+      - href: tools.qmd
+        text: Tools
+      - href: posts.qmd
+        text: Writing
+      - href: hire.qmd
+        text: Hire Me
+      - href: about.qmd
+        text: About
+    right:
+      - icon: github
+        href: https://github.com/temurkhan13
+        aria-label: GitHub
+      - icon: twitter-x
+        href: https://x.com/temurkhan138
+        aria-label: X
+      - icon: rss
+        href: posts.xml
+        aria-label: RSS
+
+  page-footer:
+    background: light
+    left: |
+      Temur Khan · [temhan.dev](https://temhan.dev)
+    center: |
+      [GitHub](https://github.com/temurkhan13) · [X](https://x.com/temurkhan138) · [Bundle](https://temurah.gumroad.com/l/production-ai-mcp-suite)
+    right: |
+      [temur@pixelette.tech](mailto:temur@pixelette.tech)
+
+format:
+  html:
+    theme:
+      light: cosmo
+    css: styles.css
+    toc: false
+    code-copy: true
+    code-overflow: wrap
+    code-block-bg: true
+    code-block-border-left: "#3a86ff"
+    link-external-newwindow: true
+    link-external-icon: false
+    page-layout: article
+    fontsize: 1rem
+    mainfont: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    monofont: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    grid:
+      sidebar-width: 0px
+      body-width: 760px
+      margin-width: 200px

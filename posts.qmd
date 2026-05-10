@@ -1,0 +1,21 @@
+---
+title: "Writing"
+description: "Long-form essays on production AI failure patterns, agent reliability, and operational discipline."
+pagetitle: "Writing — Temur Khan"
+listing:
+  contents: posts
+  sort: "date desc"
+  type: default
+  categories: true
+  feed: true
+  date-format: "YYYY-MM-DD"
+  fields: [date, title, description, categories, reading-time]
+  sort-ui: false
+  filter-ui: false
+page-layout: full
+toc: false
+---
+
+Essays on production-AI failure patterns. New posts roughly monthly.
+
+[Subscribe via RSS](posts.xml) — no newsletter signup yet.

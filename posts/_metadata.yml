@@ -1,0 +1,21 @@
+# Default settings for all posts/
+# (override per-post in the post's own front matter)
+
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-copy: true
+    code-overflow: wrap
+    code-block-bg: true
+    code-block-border-left: "#3a86ff"
+
+author: "Temur Khan"
+date-format: "YYYY-MM-DD"
+reading-time: true
+
+# Open Graph + Twitter card defaults
+twitter-card:
+  creator: "@temurkhan138"
+  card-style: summary_large_image
+open-graph: true
