@@ -16,6 +16,6 @@ reading-time: true
 
 # Open Graph + Twitter card defaults
 twitter-card:
-  creator: "@temurkhan138"
+  creator: "@temhandev"
   card-style: summary_large_image
 open-graph: true
