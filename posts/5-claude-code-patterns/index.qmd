@@ -1,0 +1,128 @@
+---
+title: "5 Claude Code Patterns That Separate Power Users From Everyone Else"
+description: "Five patterns I see in Claude Code workflows that actually ship and scale past the first month: skill-driven workflow forks, PreToolUse hooks, subagent task delegation, headless mode + scheduled cron firings, and per-repo settings.json with command-level allowlists."
+date: 2026-05-13
+categories: [claude-code, agents, production-ai, workflows, mcp]
+author: "Temur Khan"
+toc: true
+toc-depth: 2
+reading-time: true
+image: cover.png
+image-alt: "Code editor mockup showing .claude/skills/refactor.md being conditionally loaded — context window 4% used, previously 78% with monolithic CLAUDE.md, with a payoff callout: 60-80% context savings."
+twitter-card:
+  image: cover.png
+open-graph:
+  image: cover.png
+---
+
+Skip if you're new — these are for people past `CLAUDE.md` and `settings.json`. The patterns below are what I see in Claude Code workflows that actually ship, scale, and survive past the first month.
+
+---
+
+## 1. Skill-driven workflow forks instead of one mega-context
+
+Most users stuff their `CLAUDE.md` with 800 lines hoping Claude reads it all. It doesn't work. The model skims the front, half-attends to the middle, and the back gets context-dropped under load.
+
+**The fix:** split the monolithic `CLAUDE.md` into skill files that load conditionally.
+
+```
+.claude/skills/
+  refactor.md      ← loads only when "refactor X" prompts
+  deploy.md        ← loads only when "deploy" prompts
+  testing.md       ← loads only when "test" prompts
+  db-schema.md
+  security.md
+```
+
+Say *"refactor X"* → only `refactor.md` loads. Say *"deploy"* → only `deploy.md` loads. **60–80% context savings**, and Claude actually pays attention to the rules in scope.
+
+---
+
+## 2. PreToolUse hooks for destructive command gates
+
+Approval prompts don't scale to background sessions where there's no human to approve. They block autonomous loops cold.
+
+**The fix:** a 30-line PreToolUse Bash hook + allowlist file kills every `rm -rf`, `DROP TABLE`, `git push --force`, and `chmod 777 -R` before the model can fire them.
+
+```bash
+# .claude/hooks/pre-tool-use/bash-vet.sh
+case "$1" in
+  *"rm -rf "*)          exit 1 ;;
+  *"DROP TABLE"*)       exit 1 ;;
+  *"git push --force"*) exit 1 ;;
+  *"chmod 777 -R"*)     exit 1 ;;
+esac
+```
+
+Hooks run silently, scale to autonomous loops, and you sleep without wondering what your agent shipped at 3am.
+
+---
+
+## 3. Subagent task delegation
+
+Stop running one session that does everything. Long sessions hit *"compaction drift"* — the model loses early decisions as the middle gets compressed under load.
+
+**The fix:** spawn focused subagents per task type.
+
+- **Research subagent** → reads docs, explores code, summarizes
+- **Planning subagent** → takes research output, drafts the change plan
+- **Execution subagent** → implements one phase at a time
+- **Verification subagent** → runs tests, checks output, reports back
+
+Each subagent has clean context. Cross-context isolation prevents the drift. Surprisingly cheap given the token cost of one bloated session vs four focused ones.
+
+---
+
+## 4. Headless mode + scheduled cron firings
+
+This is the unlock most users haven't tried.
+
+Anthropic's new scheduled tasks + a state file in the repo + headless prompts = genuine 24/7 work without an active terminal.
+
+```yaml
+# .claude/schedule.yaml
+- name: dependency-bump-friday
+  cron: "0 14 * * 5"
+  prompt: "Audit package.json. Open PRs for non-breaking updates."
+
+- name: daily-changelog-refresh
+  cron: "0 6 * * *"
+  prompt: "Read git log of last 24h. Append to CHANGELOG.md."
+```
+
+Code reviews, dependency bumps, content generation, daily refreshes — all autonomous. The state file holds context across firings so the agent picks up where it left off.
+
+---
+
+## 5. Per-repo `settings.json` with command-level allowlists
+
+Don't share one global allowlist across projects. Each repo gets its own `.claude/settings.json` defining safe commands for that codebase.
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "bash:npm test",
+      "bash:npm run build",
+      "bash:git status",
+      "bash:git diff *",
+      "bash:gh issue *",
+      "edit:src/*"
+    ]
+  }
+}
+```
+
+Cold-start onboarding on a new repo drops from 30 minutes of approval-fatigue (*"Claude wants to run `npm test`? Yes. Claude wants to run `git status`? Yes..."*) to zero. The `settings.json` defines the safety boundary once; every session in that repo respects it automatically.
+
+---
+
+## Where this leads
+
+These five patterns aren't visible in the official docs. They emerge from running Claude Code at production scale. If you're past the `CLAUDE.md` basics and want the next layer — start with skill-driven forks. The context savings alone change how the tool feels.
+
+Bookmark for your next workflow refresh.
+
+---
+
+*Originally posted on X as a long-form article: [5 Claude Code Patterns That Separate Power Users From Everyone Else](https://x.com/temhandev/article/2054317363869409419).*
