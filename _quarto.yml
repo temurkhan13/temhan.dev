@@ -73,3 +73,4 @@ format:
       sidebar-width: 0px
       body-width: 760px
       margin-width: 200px
+    include-after-body: _includes/cf-analytics.html
