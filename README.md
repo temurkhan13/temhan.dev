@@ -4,7 +4,7 @@ Source for [temhan.dev](https://temhan.dev), Temur Khan's personal practitioner 
 
 ## Stack
 
-- **[Quarto](https://quarto.org)** — markdown-driven static site generator (same as Hamel Husain's hamel.dev)
+- **[Quarto](https://quarto.org)** — markdown-driven static site generator
 - **Theme:** cosmo (light) with custom CSS overrides in `styles.css`
 - **Hosting:** Cloudflare Pages (domain registered at Cloudflare)
 - **Deploy:** auto on push to `main` branch via Cloudflare Pages GitHub integration
