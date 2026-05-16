@@ -1,0 +1,56 @@
+---
+title: "Rate-Limit Detection Belongs at the Header Layer, Not the Error String"
+description: "Parsing a 429 out of an error message is reading at the wrong layer. The structured signal was sitting in the response headers, before the regex ran and before the idle timer won the race."
+date: 2026-05-16
+categories: [production-ai, reliability, error-handling, agents]
+author: "Temur Khan"
+toc: true
+toc-depth: 2
+reading-time: true
+---
+
+A recurring pattern I keep finding in production AI error-handling code: the rate-limit detector parses the error body for `429` or `rate limit`, and by the time that regex runs the system has already thrown away the information the server handed it cleanly.
+
+The shape is almost always identical. A provider returns a 429. The HTTP client surfaces it as a generic error with a message like `Provider API error (429): Resource has been exhausted`. Somewhere downstream an `extractStatus`-style function runs a regex against that message to recover the status code. The recovered code drives the failover decision: rotate to a backup credential, start a cooldown, switch providers.
+
+Two things break this.
+
+## The regex is brittle in a way that compounds
+
+Every provider formats its error string differently. One puts the status in parentheses, another prefixes it, another wraps it in a JSON envelope that gets stringified somewhere up the stack. The regex grows a new branch for each provider, and a single missed format means the 429 is silently reclassified as a generic failure. This shows up in public bug trackers as a one-character regex error that goes unnoticed for weeks, because it only triggers on one provider's specific phrasing and the failover "mostly works" everywhere else.
+
+## The regex loses a race with the idle timer
+
+This is the worse half. If the request's idle timeout fires before the error body is fully processed, the attempt aborts with a `timeout` reason. The failover logic then sees `timeout`, not `rate_limit`. It does not start the cooldown. It retries the same exhausted credential. Every subsequent request repeats the cycle: hit the rate-limited provider, wait for the timeout, rotate, repeat. The user experiences slow degradation rather than a clean failover, and the logs say `timeout` everywhere, so nobody goes looking for a rate-limit problem. The actual cause is invisible in exactly the place an operator would look.
+
+## The fix is the layer, not the regex
+
+HTTP rate limits arrive with structured headers. `Retry-After` is the standard one and it is present on most well-behaved 429 responses. Most major model providers also expose remaining-quota and reset-window headers on the response itself. Those headers are readable at the response-handler layer: before any error object is constructed, before any message string is formatted, before the idle timer has a chance to win the race.
+
+```js
+// Brittle: status recovered from a formatted error string, downstream,
+// after the idle timer may have already aborted the attempt
+function classifyFailure(err) {
+  const m = /\b(429)\b/.exec(err.message || "");
+  return m ? "rate_limit" : "timeout";
+}
+
+// Robust: signal read off the response at the layer it arrives intact
+function classifyResponse(res) {
+  if (res.status === 429 || res.headers.get("retry-after")) {
+    return {
+      kind: "rate_limit",
+      retryAfterMs: parseRetryAfter(res.headers),
+    };
+  }
+  // fall through to body inspection only as a last resort
+}
+```
+
+The difference is not the cleverness of the detection. It is the layer. By the time you are running a regex over an error message you are working with a lossy, reformatted, possibly-already-timed-out representation of something the server told you plainly a few hundred milliseconds earlier.
+
+## The general rule
+
+This extends past rate limits. Any time you find yourself parsing a stringified error to recover structured information the protocol already gave you, that is a signal you are reading at the wrong layer. The structured form existed. Something between the wire and your handler discarded it, and now you are reconstructing it with a regex and hoping the format never changes.
+
+The check I now apply to every failure-classification path: trace backward to where the signal first entered the system. If the structured form (a status code, a header, a typed exception) existed at an earlier layer than where the classification happens, move the classification earlier. The regex was never the bug. The layer was.
