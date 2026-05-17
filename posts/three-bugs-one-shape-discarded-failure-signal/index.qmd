@@ -1,0 +1,78 @@
+---
+title: "Three Bugs, One Shape: The Failure Signal That Existed and Got Discarded"
+description: "Across a week of production-AI bug reports, three landed in completely different subsystems and turned out to be the same bug wearing three costumes. The shape: a structured failure signal that existed at one layer, got discarded before anything used it, and left a success record that disagreed with reality."
+date: 2026-05-17
+categories: [production-ai, reliability, error-handling, architecture]
+author: "Temur Khan"
+toc: true
+toc-depth: 2
+reading-time: true
+---
+
+I read a lot of production-AI bug reports. Different stacks, different teams, different subsystems. Most weeks the failures look unrelated to each other. This week three of them were the same bug.
+
+They did not look the same. One was an LLM provider rate-limit being misclassified as a timeout. One was a subagent that finished its work but left the requester stuck waiting. One was a chat message that got split into chunks where only the first chunk arrived. Three subsystems with nothing obviously in common: HTTP client error handling, agent lifecycle bookkeeping, chat delivery fan-out. Read them side by side and they are one structural failure repeated three times.
+
+Here is the shape, stated once before the cases so you can watch for it: **a structured failure signal exists at one layer, something discards it before anything acts on it, and the system is left holding a success record that disagrees with what actually happened, with nothing checking the disagreement.**
+
+## Case one: the rate limit that became a timeout
+
+A provider returns a 429. The 429 is in the HTTP response: a status code, a `Retry-After` header, often a structured quota field. That is the signal in its cleanest form, sitting on the response object the moment it arrives.
+
+Then the HTTP client wraps it in a generic error with a message like `Provider API error (429): Resource has been exhausted`. Downstream, a function runs a regex over that message string to recover the status code. The recovered code is supposed to drive the failover decision: rotate credentials, start a cooldown, switch providers.
+
+Two things go wrong, and both are the same thing. The regex is brittle, because every provider formats the string differently and a missed format silently reclassifies the 429 as a generic failure. And the regex often loses a race with the request idle timer, so the attempt aborts as a `timeout` before the body is even parsed. The failover logic then sees `timeout`, does not start the cooldown, and retries the same exhausted credential. The user gets slow degradation instead of a clean failover, and every log line says `timeout`, so nobody goes looking for a rate-limit problem.
+
+The signal existed, intact, on the response object. The system chose to reconstruct it downstream from a stringified error instead of reading it where it arrived. Everything after that is the cost of that choice.
+
+## Case two: the subagent that finished into a void
+
+A subagent runs. A completion-lifecycle helper, the thing that advances the run state and announces the result, throws. The catch around it logs nothing and returns. The run state never advances. Orphan recovery, the mechanism that is supposed to notice abandoned runs and resume them, never fires, because from its perspective nothing was ever abandoned. The state simply never moved.
+
+The child did its work. The answer exists. The requester sits in a stale waiting state until something external pokes it. The user-visible symptom is "the agent is stuck waiting on a subagent that is already done."
+
+The failure signal here is the exception at the catch site. That exception is the system telling itself "completion did not happen." The catch swallows it. Nothing converts "completion threw" into a state the rest of the system can see and act on. The recovery machinery is present and correct; it never gets the input it needs because the input was discarded one layer up, inside a catch block that chose to continue rather than record.
+
+This is the same shape as case one. A signal that exists in structured form (there, a status on a response; here, an exception at a catch site) is dropped before anything that needs it can see it. The difference is only which layer did the dropping.
+
+## Case three: the message that was only mostly sent
+
+An agent produces a long reply. The chunker correctly splits it into multiple chat-platform chunks. A durable send wrapper sends them with per-chunk retry. Chunk one is delivered. A later chunk hits a transient error, the retry exhausts or the error is caught and the loop proceeds, and chunks two and after never arrive. No rate-limit error is logged. No 5xx is logged. The session transcript stored on disk shows the full reply, all chunks, complete.
+
+So the system's own record says the reply was sent. The delivered artifact is truncated to the first chunk. Those two facts disagree and nothing reconciles them. The durable wrapper added retry, which feels like robustness, but retry on a per-element failure is not the same thing as proof that the batch was delivered. If retries exhaust, the wrapper still returns a success-shaped result because chunk one made it and nothing checks that all the intended chunks made it.
+
+The signal existed at the per-chunk send boundary: each chunk's send either acked or it did not. That per-chunk truth was available and then collapsed into a batch-level "we tried, chunk one is fine, done." The reconciliation that would have caught it (compare intended chunk count against acked chunk count, refuse to report success on a delta) was never there.
+
+## The shape, named
+
+Three subsystems. One structure.
+
+In each case there is a layer where the failure is still a clean, structured fact. The 429 on the response. The exception at the catch. The per-chunk ack. In each case that fact is discarded or flattened before it reaches the thing that would act on it: the regex reconstructs the status from a string and loses, the catch swallows the exception and continues, the wrapper collapses per-chunk results into a batch-level shrug.
+
+And in each case the system ends up holding a record that says success, sitting next to a reality that says partial or failed, with no step anywhere that compares the two. The transcript says the reply sent. The run state says nothing happened, which the recovery system reads as nothing-to-recover. The failover sees a timeout where there was a rate limit. The record and the reality disagree, and the disagreement is nobody's job to notice.
+
+The bug is never the immediate thing. It is not the brittle regex, the empty catch, or the retry loop. Those are symptoms. Swap the regex for a better regex and the idle-timer race still flattens the 429. Add logging to the catch and the run state still does not advance. Add more retries to the chunk loop and an exhausted retry still returns success-shaped. The bug is the absence of a reconciliation step between "we recorded success" and "the intended thing actually completed," anchored at the layer where the failure signal was last intact.
+
+## Why this hides better in AI systems
+
+This shape is not unique to AI. It is the classic distributed-systems trap: treating a partial result as a whole one because the happy path looked fine. But AI systems make it worse in three specific ways.
+
+The pipelines are longer. A single agent turn can pass through a provider API, an SDK, an agent harness, a tool layer, and a delivery channel. Every boundary is a place where a structured signal can be flattened into a string or swallowed into an exception. More layers, more opportunities to discard.
+
+The outputs are probabilistic, so operators are pre-conditioned to attribute weirdness to the model. A truncated reply reads as "the model stopped early." A stuck agent reads as "the model is thinking." A failed-over-to-the-wrong-model response reads as "the model had a bad day." The actual cause, a swallowed delivery error or a misclassified rate limit, is invisible because the baseline is already noisy enough that nobody suspects the plumbing.
+
+And the systems are new, so the reconciliation discipline that mature systems eventually grow has not been added yet. Durability wrappers get written before the reconciliation step that makes durability mean something. Retry gets added before the terminal check that makes retry honest.
+
+## The check
+
+For every success path in an AI system, ask one question. **Where is the earliest layer at which the failure signal exists in structured form, and is anything reconciling the recorded success against the actual outcome at that layer or after it?**
+
+If the answer is "we reconstruct the signal downstream from a string," that is the bug. Read it where it arrives.
+
+If the answer is "we catch the failure and continue," that is the bug. Convert it to a state the system can see, do not swallow it.
+
+If the answer is "we retry and then report success," that is the bug. Retry is not proof. Reconcile intended against actual and make "all of it happened" the only predicate that satisfies success.
+
+The fix in all three cases is the same and it is boring. Capture the failure signal as a first-class fact at the layer where it is still intact. Make the success path require that the whole intended thing happened, not that the first part did. Surface any gap the same way a hard error would be surfaced, loudly, not as a quiet return. None of this is clever. It is just refusing to throw away something the system already knew.
+
+The interesting failures in production AI are almost never the model. They are the places where the system had the truth in its hands for one layer and let go of it.
