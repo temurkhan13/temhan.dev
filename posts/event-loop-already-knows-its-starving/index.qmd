@@ -1,0 +1,63 @@
+---
+title: "Your Event Loop Already Knows It's Starving. You're Just Not Listening."
+description: "Event-loop lag is a measurable, first-class signal. Most systems capture it only incidentally on one code path, so every other timeout during a starvation window gets misattributed to the wrong subsystem. The fix isn't less load. It's listening to the signal that already exists."
+date: 2026-05-18
+categories: [production-ai, reliability, observability, architecture]
+author: "Temur Khan"
+toc: true
+toc-depth: 2
+reading-time: true
+---
+
+Here is a log line I keep seeing variations of in production-AI incident reports:
+
+```text
+fetch timeout after 2500ms (elapsed 4819ms) timer delayed 2319ms, likely event-loop starvation
+```
+
+Read that carefully. A timer was set for 2500ms. It fired at elapsed 4819ms. The annotation says the timer was delayed by 2319ms. That is the system telling you, in plain text, that the event loop was blocked for over two seconds and a timer that should have fired on schedule could not.
+
+That line is not the bug. That line is the system being honest. The bug is everything around it that is not.
+
+## The signal exists, on exactly one path
+
+In the incident this came from, the user-visible symptom was Discord threads and agent sessions timing out under load. The gateway was up. The provider was connected. Channels resolved. By every surface check, the network was fine. So the natural diagnosis was a Discord routing problem, and a routing investigation was opened, and it found nothing, because there was nothing there to find.
+
+The actual cause was event-loop starvation. Some combination of large-context sessions, cron maintenance, and tool calls was monopolizing the loop, and everything that depended on a timer firing on time was failing. The `timer delayed 2319ms` annotation proved it.
+
+But that annotation only existed because one specific code path, the fetch-with-timeout wrapper, happened to measure and log its own timer drift. The Discord thread timeouts and the session timeouts that were the actual reported symptom carried no such annotation. They surfaced as generic timeouts. A generic timeout on a Discord operation looks exactly like a Discord problem. So it got filed as one.
+
+The signal that would have explained every one of those timeouts existed at the same moment in wall-clock time. It just lived on a different code path, and nothing correlated the two.
+
+## Lag is a first-class measurement, not a side effect
+
+The Node runtime gives you event-loop delay as a direct measurement. `perf_hooks.monitorEventLoopDelay()` returns a histogram you can sample. If you do not want the histogram, the hand-rolled version is four lines: schedule a timer for a fixed interval, record the timestamp, on fire compare actual elapsed against expected, and the difference is your lag.
+
+```js
+import { monitorEventLoopDelay } from "node:perf_hooks";
+
+const h = monitorEventLoopDelay({ resolution: 20 });
+h.enable();
+
+setInterval(() => {
+  const lagMs = h.mean / 1e6;          // nanoseconds to ms
+  if (lagMs > LAG_THRESHOLD_MS) {
+    emit("event_loop_lag", { lagMs, p99: h.percentile(99) / 1e6 });
+  }
+  h.reset();
+}, 5000).unref();
+```
+
+The point is not the four lines. The point is what they change. With an always-on lag signal, "Discord timed out at 00:41:27" stops being a question you answer by investigating Discord. It becomes a question you answer by checking whether lag was above threshold at 00:41:27. If it was, the Discord timeout is a symptom of starvation and the investigation is over. If it was not, then it really is a Discord problem and you look there. Either way you stopped guessing.
+
+## Why this keeps happening
+
+The reason this pattern is endemic is that the incidental capture works just well enough to be misleading. The fetch wrapper logs its timer drift, so in some fraction of incidents the starvation is visible if someone happens to grep the right path. That occasional visibility creates the illusion that the system reports starvation. It does not. It reports starvation on one path, sometimes, and presents it as a generic timeout everywhere else.
+
+The fix that addresses the misdiagnosis rather than the symptom is to promote lag from an accidental byproduct of one fetch wrapper to a first-class always-on signal, and then to correlate downstream timeouts against it. Reducing load (fewer plugins, smaller context windows, spreading cron) treats the symptom and is unbounded under growth. You will always be able to add enough work to starve a single-threaded loop. What you can stop doing is misattributing the resulting timeouts to whichever subsystem happened to be holding the bag when the loop froze.
+
+## The general rule, again
+
+This is the same shape I keep writing about. A failure produces a structured signal at one layer. The signal is intact and unambiguous at that layer. Then it is captured incidentally, or flattened into a generic error, or swallowed, before it reaches the thing that would act on it. The system ends up with a symptom that points at the wrong subsystem and an investigation that finds nothing, while the real signal sat one path over the whole time.
+
+For event-loop starvation the structured signal is timer drift. It is cheap to measure, the runtime hands it to you directly, and the only reason it does not already explain your timeouts is that nobody made it a first-class thing and correlated the symptoms to it. Your event loop already knows when it is starving. The work is making the rest of the system listen.
